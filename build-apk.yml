@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "*" ]
   workflow_dispatch:
 
 jobs:
@@ -23,8 +23,61 @@ jobs:
         with:
           gradle-version: '8.4'
 
-      - name: Build Debug APK
-        run: gradle assembleDebug
+      - name: Arrange Flat Repo Files into Android Structure & Build APK
+        run: |
+          set -e
+          mkdir -p app/src/main/java/com/coopbros/game
+          mkdir -p app/src/main/assets
+
+          # Copy your uploaded root files directly into their required Android folders
+          cp -f index.html app/src/main/assets/index.html
+          cp -f AndroidManifest.xml app/src/main/AndroidManifest.xml
+          cp -f MainActivity.java app/src/main/java/com/coopbros/game/MainActivity.java
+
+          # Create root build.gradle
+          cat << 'ROOT_EOF' > build.gradle
+          plugins {
+              id 'com.android.application' version '8.2.2' apply false
+          }
+          ROOT_EOF
+
+          # Create app/build.gradle
+          cat << 'APP_EOF' > app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.coopbros.game'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.coopbros.game"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 2
+                  versionName "1.1.0"
+              }
+
+              buildTypes {
+                  debug {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'androidx.webkit:webkit:1.10.0'
+          }
+          APP_EOF
+
+          ls -lh app/src/main/assets/index.html
+          gradle :app:assembleDebug --stacktrace
 
       - name: Upload Compiled APK Artifact
         uses: actions/upload-artifact@v4
